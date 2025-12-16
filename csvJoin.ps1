@@ -11,7 +11,7 @@
     
     Logic decomposed and generated via iterative AI prompting and integrated by the author.
 
-.PARAMETER InputPath (case sensitive)
+.PARAMETER InputPath
     Specify the input .smw file PATH. If the script is in the same folder as the .smw than you can simply write the filename with the file extension. Example: program.smw
 
 .PARAMETER ModelName (case sensitive)
@@ -238,4 +238,5 @@ else {
     Write-Host "No signals extracted. Check the input file format and path."
 
 }
+
 
