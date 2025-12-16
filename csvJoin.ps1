@@ -4,7 +4,10 @@
 
 .DESCRIPTION
 
-    IMPORTANT: Don't corrupt your .smw file. Make a backup and work off of that. I will not be held responsible as stated in the below agreement.
+    WARNING: Don't corrupt your .smw file. Make a backup and work off of that. I will not be held responsible as stated in the below agreement.
+    
+    IMPORTANT: For now this hasn't been tested with a file that has multiple touch panels or XPanels. I suspect the script will only parse the first valid block it finds and then stop.
+               I will add more conditions to allow choosing a specific device via its Simpl Windows comment (Cmnt1=) in the future.
     
     This script parses input device (e.g., touch panel, XPanel) I/O join data from a specified .smw file.
     It correlates device joins (I/O) with Internal Signal Addresses (H), Signal Names (Nm), and normalizes 
@@ -17,10 +20,15 @@
 .PARAMETER InputPath
     Specify the input .smw file PATH. If the script is in the same folder as the .smw than you can simply write the filename with the file extension. Example: program.smw
 
-.PARAMETER ModelName (case sensitive)
+.PARAMETER ModelName (case sensitive) (see important note above for details on current limitations)
     When prompted for the ModelName, you must provide the Nm=$ModelName of the correct device you want to parse the I/O joins from.
-    Example: If the device is a touch panel, valid devices include TSW-560, TSW-570, TSW-770, etc.
-    The correct ModelName can be found in the .smw file, typically near ObjVer=4 for touch panels, or use XPanel.
+    
+    For touch panels:
+    If the device is a touch panel, valid ModelName entries include TSW-560, TSW-570, TSW-770, etc.
+    The correct ModelName can be found in the .smw file, typically near ObjVer=4 for touch panels. 
+
+    For XPanels
+    If the device is an XPanel enter XPanel.
 
 .NOTES
     Author: Jason Griffiths
@@ -241,6 +249,7 @@ else {
     Write-Host "No signals extracted. Check the input file format and path."
 
 }
+
 
 
 
