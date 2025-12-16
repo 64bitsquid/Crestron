@@ -11,13 +11,13 @@
     
     Logic decomposed and generated via iterative AI prompting and integrated by the author.
 
-.PARAMETER InputPath
+.PARAMETER InputPath (case sensitive)
     Specify the input .smw file PATH. If the script is in the same folder as the .smw than you can simply write the filename with the file extension. Example: program.smw
 
-.PARAMETER ModelName
+.PARAMETER ModelName (case sensitive)
     When prompted for the ModelName, you must provide the Nm=$ModelName of the correct device you want to parse the I/O joins from.
     Example: If the device is a touch panel, valid devices include TSW-560, TSW-570, TSW-770, etc.
-    The correct ModelName can be found in the .smw file, typically near ObjVer=4 for touch panels, or use XPANEL for XPanels.
+    The correct ModelName can be found in the .smw file, typically near ObjVer=4 for touch panels, or use XPanel.
 
 .NOTES
     Author: Jason Griffiths
@@ -238,3 +238,4 @@ else {
     Write-Host "No signals extracted. Check the input file format and path."
 
 }
+
