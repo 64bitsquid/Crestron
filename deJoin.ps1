@@ -5,7 +5,7 @@
 .DESCRIPTION
     This script parses input device (e.g., touch panel, XPanel) I/O join data from a specified .smw file.
     It correlates device joins (I/O) with Internal Signal Addresses (H), Signal Names (Nm), and normalizes 
-    the sequential joins into I/A/S (Input/Analog/Serial) and O/AO/SO (Output/Analog Output/Serial Output) formats.
+    the sequential joins into I/A/S (Digital Input/Analog/Serial) and O/AO/SO (Digital Output/Analog Output/Serial Output) formats.
     This is highly useful for quickly referencing touch panel joins during user interface creation or for 
     documenting and standardizing control system interface joins.
     
@@ -236,4 +236,5 @@ if ($results.Count -gt 0) {
 }
 else {
     Write-Host "No signals extracted. Check the input file format and path."
+
 }
