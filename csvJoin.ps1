@@ -3,6 +3,7 @@
     Parses Crestron device I/O join information from a .smw file into a .csv.
 
 .DESCRIPTION
+    IMPORTANT: Don't corrupt your .smw file. Make a backup and work off of that. I will not be held responsible as stated in the below agreement.
     This script parses input device (e.g., touch panel, XPanel) I/O join data from a specified .smw file.
     It correlates device joins (I/O) with Internal Signal Addresses (H), Signal Names (Nm), and normalizes 
     the sequential joins into I/A/S (Digital Input/Analog/Serial) and O/AO/SO (Digital Output/Analog Output/Serial Output) formats.
@@ -238,5 +239,6 @@ else {
     Write-Host "No signals extracted. Check the input file format and path."
 
 }
+
 
 
