@@ -20,6 +20,18 @@
 .NOTES
     Author: Jason Griffiths
     Date: 2025-12-16
+
+    UPDATES:
+   - Update and rename
+   - Provides improved workflow.
+   - Input file can be now be a .smw.
+    -Allows for multiple panels to be extracted by appending an IPID to each output file.
+
+    Known issues: 
+    - A .sgd file must be linked to the touch panel in Simpl Windows in order for the IPID to be used in the output file name. Working on a solution for this.
+    - In certain cases the parser will grab the signals on the physical buttons and output them as a file. When this happens _buttons_ should be appended to the output file. Working on this for a future release.
+
+Working on testing and supporting more panel types.
     
     ========================================================================================================
     Copyright (c) [2025] [Jason Griffiths]
@@ -219,6 +231,7 @@ foreach ($CurrentModel in $ModelsToProcess) {
         }
     }
 }
+
 
 
 
