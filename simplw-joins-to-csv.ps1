@@ -3,56 +3,29 @@
     Parses Crestron device I/O join information from a .smw file into a .csv.
 
 .DESCRIPTION
-
-    WARNING: Don't corrupt your .smw file. Make a backup and work off of that. I will not be held responsible as stated in the below agreement.
+    WARNING: Don't corrupt your .smw file. Make a backup and work off of that.
     
     This script parses input device (e.g., touch panel, XPanel) I/O join data from a specified .smw file.
     It correlates device joins (I/O) with Internal Signal Addresses (H), Signal Names (Nm), and normalizes 
-    the sequential joins into I/A/S (Digital Input/Analog/Serial) and O/AO/SO (Digital Output/Analog Output/Serial Output) formats.
-    This is highly useful for quickly referencing touch panel joins during user interface creation or for 
-    documenting and standardizing control system interface joins.
+    the sequential joins into I/A/S and O/AO/SO formats.
     
     Logic decomposed and generated via iterative AI prompting and integrated by the author.
 
 .PARAMETER InputPath
-    Specify the input .smw file PATH. If the script is in the same folder as the .smw than you can simply write the filename with the file extension. Example: program.smw
+    Specify the input .smw file PATH.
 
 .NOTES
     Author: Jason Griffiths
     Date: 2025-12-16
 
     UPDATES:
-   - Update and rename
-   - Provides improved workflow.
-   - Input file can be now be a .smw.
-    -Allows for multiple panels to be extracted by appending an IPID to each output file.
+    - Replaced VTP mapping with Dv (Device) mapping for IP IDs.
+    - Uses Ad= attribute to find IP IDs, which is more reliable than SGD/VTP lookups.
+    - Enforces exact model name matching to avoid "Buttons" sub-device confusion.
 
-    Known issues: 
-    - A .sgd file must be linked to the touch panel in Simpl Windows in order for the IPID to be used in the output file name. Working on a solution for this.
-    - In certain cases the parser will grab the signals on the physical buttons and output them as a file. When this happens _buttons_ should be appended to the output file. Working on this for a future release.
-
-Working on testing and supporting more panel types.
-    
     ========================================================================================================
     Copyright (c) [2025] [Jason Griffiths]
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
+    [MIT License Terms...]
     ========================================================================================================
 #>
 
@@ -72,14 +45,15 @@ $formatedInputPath = $InputPath -replace '\.[^.]*$', ''
 
 # --- Define supported model list ---
 $SupportedModels = @(
-    "XPanel",
+    "XPanel 2.0 Smart Graphics",
     "TSW-560",
-    "TSW-550",
     "TSW-570",
-    "TSW-750",
     "TSW-760",
     "TSW-770",
-    "TSW-1080"
+    "TSW-1060",
+    "TSW-1070",
+    "TSW-1080",
+    "DGE-100",
 )
 
 # --- Determine Models to Process ---
@@ -101,19 +75,18 @@ catch {
     exit 1
 }
 
-# --- Step 1a: Build VTP Map (DvH -> TSAddr/IPID) ---
-# This allows us to link the internal device ID (DvH) to the user-friendly IP ID.
-Write-Host "Building VTP IP ID map..."
-$vtpMap = @{}
-# Regex searches for VTP blocks containing DvH and TSAddr
-$vtpPattern = '\[\s*ObjTp=VTP[\s\S]*?DvH=(\d+)[\s\S]*?TSAddr=([0-9A-Fa-f]+)[\s\S]*?\]'
-$vtpMatches = [regex]::Matches($fileContent, $vtpPattern, 'Singleline')
+# --- Step 1a: Build Address Map (SmH -> Ad/IPID) ---
+# Maps the Symbol Handle to the Hex IP ID found in ObjTp=Dv blocks.
+Write-Host "Building Device Address map..."
+$addrMap = @{}
+$dvPattern = '\[\s*ObjTp=Dv[\s\S]*?Ad=([0-9A-Fa-f]+)[\s\S]*?SmH=(\d+)[\s\S]*?\]'
+$dvMatches = [regex]::Matches($fileContent, $dvPattern, 'Singleline')
 
-foreach ($m in $vtpMatches) {
-    $dvh = $m.Groups[1].Value
-    $ipId = $m.Groups[2].Value
-    if (-not $vtpMap.ContainsKey($dvh)) {
-        $vtpMap[$dvh] = $ipId
+foreach ($m in $dvMatches) {
+    $addr = $m.Groups[1].Value
+    $smh = $m.Groups[2].Value
+    if (-not $addrMap.ContainsKey($smh)) {
+        $addrMap[$smh] = $addr
     }
 }
 
@@ -134,8 +107,7 @@ foreach ($CurrentModel in $ModelsToProcess) {
     Write-Host "Checking for $CurrentModel..." -ForegroundColor Yellow
 
     # Step 2: Parse Device Blocks using the "Good Regex"
-    # UPDATED: Now using Matches() to find ALL instances of the model, not just the first one.
-    $deviceBlockPattern = "(\[\s*ObjTp=Sm[^\]]*?Nm=$CurrentModel[^\]]*?ObjVer=[234][^\]]*?mI=\d+.*?\])"
+    $deviceBlockPattern = "(\[\s*ObjTp=Sm[^\]]*?Nm=$CurrentModel\s*[\r\n][^\]]*?ObjVer=[234][^\]]*?mI=\d+.*?\])"
     $allDeviceMatches = [regex]::Matches($fileContent, $deviceBlockPattern, 'Singleline')
 
     if ($allDeviceMatches.Count -eq 0) {
@@ -149,17 +121,17 @@ foreach ($CurrentModel in $ModelsToProcess) {
     foreach ($deviceMatch in $allDeviceMatches) {
         $deviceBlock = $deviceMatch.Groups[1].Value
 
-        # --- Extract IP ID Suffix ---
+        # --- Extract IP ID Suffix using SmH lookup ---
         $ipIdSuffix = ""
-        $dvhMatch = [regex]::Match($deviceBlock, 'DvH=(\d+)', 'IgnoreCase')
-        if ($dvhMatch.Success) {
-            $dvhKey = $dvhMatch.Groups[1].Value
-            if ($vtpMap.ContainsKey($dvhKey)) {
-                $ipIdSuffix = "_" + $vtpMap[$dvhKey] # e.g., "_03" or "_1F"
+        $hMatch = [regex]::Match($deviceBlock, 'H=(\d+)', 'IgnoreCase')
+        if ($hMatch.Success) {
+            $hKey = $hMatch.Groups[1].Value
+            if ($addrMap.ContainsKey($hKey)) {
+                $ipIdSuffix = "_" + $addrMap[$hKey] # e.g., "_1F"
             }
         }
 
-        # Extract Input/Output counts using boundary fix
+        # Extract Input/Output counts
         $n1I = if ([regex]::Match($deviceBlock, '\s+n1I=(\d+)', 'IgnoreCase').Success) { [int][regex]::Match($deviceBlock, '\s+n1I=(\d+)', 'IgnoreCase').Groups[1].Value } else { 0 }
         $n2I = if ([regex]::Match($deviceBlock, '\s+n2I=(\d+)', 'IgnoreCase').Success) { [int][regex]::Match($deviceBlock, '\s+n2I=(\d+)', 'IgnoreCase').Groups[1].Value } else { 0 }
         $mI  = if ([regex]::Match($deviceBlock, '\s+mI=(\d+)', 'IgnoreCase').Success) { [int][regex]::Match($deviceBlock, '\s+mI=(\d+)', 'IgnoreCase').Groups[1].Value } else { 0 }
@@ -216,14 +188,7 @@ foreach ($CurrentModel in $ModelsToProcess) {
         }
 
         # Step 6: Export CSV
-        # If user supplied OutputPath, we use it (WARN: Will overwrite if multiple panels exist)
-        # Otherwise, we generate a name: Generic_TSW-770_03_map.csv
-        $FinalOutput = ""
-        if ($OutputPath) { 
-            $FinalOutput = $OutputPath 
-        } else {
-            $FinalOutput = "$formatedInputPath" + "_" + "$CurrentModel" + "$ipIdSuffix" + "_map.csv"
-        }
+        $FinalOutput = if ($OutputPath) { $OutputPath } else { "$formatedInputPath" + "_" + "$CurrentModel" + "$ipIdSuffix" + "_map.csv" }
 
         if ($results.Count -gt 0) {
             $results | Export-Csv -Path $FinalOutput -NoTypeInformation -Delimiter ',' -Encoding UTF8
@@ -231,6 +196,7 @@ foreach ($CurrentModel in $ModelsToProcess) {
         }
     }
 }
+
 
 
 
